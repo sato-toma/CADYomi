@@ -6,13 +6,18 @@
     "scripts": {
         "dev": "vite --host 0.0.0.0",
         "build": "tsc -b && vite build",
-        "preview": "vite preview --host 0.0.0.0"
+        "preview": "vite preview --host 0.0.0.0",
+        "typecheck": "tsc -b --pretty false",
+        "lint": "biome check .",
+        "lint:fix": "biome check --write .",
+        "format": "biome format --write ."
     },
     "dependencies": {
         "react": "^19.3.0",
         "react-dom": "^19.3.0"
     },
     "devDependencies": {
+        "@biomejs/biome": "^2.5.13",
         "@types/node": "^26.4.1",
         "@types/react": "^19.3.0",
         "@types/react-dom": "^19.3.0",
