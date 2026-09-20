@@ -32,9 +32,18 @@ The first milestone is about:
 - property inspection
 - plugin architecture
 
-The first milestone is not about creating a full rendering system as the default product.
+The first milestone is not about creating a full rendering system, editing workflow, or AI API as the default product.
 
-### 3. Plugin-first thinking
+### 3. Documentation before architecture changes
+
+Before introducing a CAD kernel, renderer, file format, or API transport:
+
+- Read the relevant ADR.
+- Update or add an ADR when the decision is not already recorded.
+- Update `local/DEVELOPMENT.md` when the implementation order changes.
+- Keep API contracts under `docs/api/` and document schemas before implementation.
+
+### 4. Plugin-first thinking
 
 Any feature that is not a core dependency should be added as a plugin whenever practical.
 
@@ -47,7 +56,7 @@ Examples:
 - inspection panels
 - additional render backends
 
-### 4. Model-first workflow
+### 5. Model-first workflow
 
 Prefer one of these flows:
 
@@ -57,7 +66,7 @@ STEP file -> model -> tree -> properties -> targeted visual plugin
 
 Do not jump directly into heavy rendering before the structure is clear.
 
-### 5. Keep the project readable
+### 6. Keep the project readable
 
 A new AI should be able to answer these questions quickly:
 
@@ -66,6 +75,7 @@ A new AI should be able to answer these questions quickly:
 - What is out of scope?
 - How are plugins organized?
 - What is the first milestone?
+- Where are architecture decisions and API contracts documented?
 
 ---
 

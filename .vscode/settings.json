@@ -1,8 +1,6 @@
 {
     "editor.formatOnSave": true,
-    "cSpell.words": [
-        "Yomi"
-    ],
+    "cSpell.words": ["Yomi"],
     "[javascript]": {
         "editor.defaultFormatter": "biomejs.biome"
     },

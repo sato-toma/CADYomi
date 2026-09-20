@@ -1,16 +1,16 @@
-# STEP Viewer Development Plan
+# CADYomi Development Plan
 
 ## 1. Project Overview
 
-STEP Viewer is a web-based 3D viewer for CAD data.
+CADYomi is a browser-based CAD inspection tool.
 
 The initial goal is intentionally small:
 
-> Load a STEP file locally in a web browser and display its 3D geometry.
+> Load a STEP file locally, understand its structure, and inspect it progressively on desktop and mobile browsers.
 
 The project should be designed so that the current viewer implementation can eventually be replaced without requiring the entire application architecture to be rewritten.
 
-The first release targets **STEP files only** and is deployed as a web application on **Vercel**.
+The first release targets **STEP files only** and is deployed as a web application on **Vercel**. A full 3D viewport is not required before the model tree and properties can be inspected.
 
 Future goals include:
 
@@ -19,6 +19,7 @@ Future goals include:
 * Android distribution
 * Potential desktop or native implementations
 * Replaceable rendering/viewer implementations
+* Local AI agent API for analysis and, later, editing
 * User-provided plugins
 * Extensible processing pipelines
 
@@ -83,11 +84,23 @@ STEP is the first implementation of the importer.
 
 ---
 
-## 4. Viewer Strategy
+## 4. Inspection and Viewer Strategy
 
-The current goal is simply:
+The first goal is:
 
-> Display STEP geometry correctly and interactively.
+> Make the model understandable before making the whole model visible.
+
+The initial inspection flow is:
+
+```text
+Select local STEP file
+  -> read metadata and entity hierarchy
+  -> show table/tree and properties
+  -> tessellate only the selected entity or subtree
+  -> optionally display the selected geometry
+```
+
+Full-model rendering is an optional later view, not a prerequisite for opening a file.
 
 The viewer should support basic operations such as:
 
@@ -97,6 +110,7 @@ The viewer should support basic operations such as:
 * Fit model to view
 * Reset camera
 * Basic visibility control if practical
+* Selected-entity or selected-subtree display
 
 The viewer implementation is considered replaceable.
 
@@ -113,11 +127,11 @@ Prefer boundaries such as:
 ```text
 Application
     ↓
-Viewer Interface
+  Inspection Model and Viewer Interfaces
     ↓
 Current Viewer Implementation
     ↓
-Rendering Library / CAD Kernel
+  Rendering Library / CAD Kernel
 ```
 
 The current implementation may use whatever technology is most practical, but the rest of the application should depend on abstractions where doing so is reasonable.
@@ -139,11 +153,12 @@ User
   ↓
 Browser
   ├── STEP file
-  ├── STEP parser / CAD kernel
-  ├── Geometry conversion
-  └── WebGL rendering
-        ↓
-      Viewer
+  ├── parser / CAD kernel
+  ├── metadata and entity index
+  ├── selected geometry conversion
+  └── optional WebGL rendering
+      ↓
+    Inspection UI
 ```
 
 The Vercel server should primarily distribute the application.
@@ -170,8 +185,8 @@ The preferred initial stack is:
 
 * TypeScript
 * React
-* Redux
-* redux-saga
+* Redux only when centralized state is demonstrated to be useful
+* redux-saga only when a real asynchronous workflow requires it
 * Vite
 * Web APIs
 * Web Workers where appropriate
@@ -204,9 +219,9 @@ The default architecture should remain buildable and understandable as a web app
 
 ## 7. State Management
 
-Use Redux for application state where centralized state is useful.
+Use Redux for application state only where centralized state is useful.
 
-Use redux-saga for asynchronous workflows and side effects.
+Use redux-saga only when its orchestration value is demonstrated by a concrete workflow.
 
 Examples:
 
@@ -410,7 +425,7 @@ Do not prematurely optimize.
 
 ---
 
-## 12. Initial Feature Set
+## 12. Development Milestones
 
 The first milestone should be intentionally small.
 
@@ -419,14 +434,14 @@ The first milestone should be intentionally small.
 * Create TypeScript project
 * Configure React
 * Configure Vite
-* Configure Redux
-* Configure redux-saga
 * Configure linting / formatting
 * Configure build
 * Configure GitHub repository
 * Configure Vercel deployment
+* Add Redux only if centralized state is needed
+* Add redux-saga only if a concrete asynchronous workflow benefits from it
 
-### Milestone 1 — Basic Viewer
+### Milestone 1 — Local STEP Model Index
 
 Implement:
 
@@ -434,55 +449,69 @@ Implement:
 * File selection
 * STEP file loading
 * STEP parsing
-* Geometry conversion
-* 3D rendering
-* Camera orbit
-* Pan
-* Zoom
-* Fit-to-model
+* Metadata extraction
+* Stable entity identifiers
+* Entity tree or table
+* Selected entity properties
+* Invalid-file and unsupported-entity errors
 
 Success criteria:
 
-> A user can open the website, select a STEP file, and inspect the resulting 3D model.
+> A user can select a local STEP file and inspect its structure and properties without loading a full 3D scene.
 
-### Milestone 2 — Usability
+### Milestone 2 — Selected Geometry
 
 Add:
 
-* Loading indicator
-* Error handling
-* Import progress where possible
-* Reset camera
-* Basic model information
-* Empty state
-* Unsupported-file handling
-* Large-file handling
+* Selected-entity tessellation
+* Selected-subtree rendering
+* Replaceable viewer interface
+* Orbit, pan, zoom, and fit for the selected geometry
+* Geometry cancellation and disposal
+* Desktop and mobile viewport handling
 
-### Milestone 3 — Architecture
+### Milestone 3 — Importer and Worker Boundaries
 
 Establish:
 
-* Viewer boundary
 * Importer boundary
+* Common inspection model
+* Format capability reporting
 * Application state boundary
 * Worker boundary where appropriate
-* Initial plugin API
+* Import progress and cancellation
+* Initial plugin API only where a concrete feature needs it
 
-Do not over-engineer these abstractions.
+Do not add a second file format or a full renderer abstraction without implementation evidence.
 
-### Milestone 4 — First Sample Plugin
+### Milestone 4 — First Inspection Plugin
 
 Implement one useful feature as a plugin.
 
 For example:
 
-* Measurement
 * Model information
 * Bounding box
+* Selection highlight
+* Measurement
 
 The purpose of this milestone is to validate that the plugin architecture is actually usable.
 
-### Milestone 5 — Deployment
+### Milestone 5 — Local Agent API
+
+Document and implement the first read-only operation:
+
+* Capability discovery
+* Entity tree query
+* Entity properties
+* Selected-subtree analysis
+* Progress and cancellation
+
+Create the machine-readable contract before implementation. Compare MCP and local HTTP/OpenAPI with a real client before selecting the first transport.
+
+Editing, change sets, and export are later milestones.
+
+### Milestone 6 — Deployment
 
 Deploy the viewer to Vercel.
 
@@ -639,28 +668,54 @@ Possible future architecture:
        │            │            │
        └────────────┼────────────┘
                     ↓
-          Common Model Interface
+           Common Inspection Model
                     ↓
-                 Viewer
+           Inspection UI / Agent API
 ```
 
-Do not implement a universal CAD abstraction prematurely.
+    Do not implement a universal CAD abstraction prematurely. Define the smallest common inspection model from actual STEP and later importer experience.
 
-First make STEP work correctly.
+    First make STEP model indexing and selected geometry work correctly.
 
 When a second format is actually implemented, use the experience from the second importer to determine which abstractions are genuinely common.
+
+    Each format adapter must report:
+
+    * Supported file extensions
+    * Available hierarchy and metadata
+    * Whether tessellation is available
+    * Whether editing or export is supported
+    * Unsupported entities or properties
+
+    Candidate future formats are IGES, STL, OBJ, FBX, JT, and glTF/GLB. They remain out of the initial implementation.
+
+    ## 18.1 Local Agent API
+
+    The local agent API is a separate boundary from the importer and renderer.
+
+    Initial rules:
+
+    * Keep the API local-first and do not upload CAD files by default.
+    * Document each operation before implementation.
+    * Use JSON Schema for shared payloads.
+    * Use OpenAPI 3.1 for HTTP or evaluate MCP for agent-native tools and resources.
+    * Keep TOML for configuration, not API contracts.
+    * Start with read-only capability, entity, property, and selected-subtree analysis operations.
+    * Treat editing as a validated change set and export a new file.
+
+    The contract and schema rules live in [docs/api/README.md](../docs/api/README.md) and [ADR 0002](../docs/adr/0002-format-adapters-and-local-agent-api.md).
 
 ---
 
 ## 19. Development Principles
 
-### Principle 1 — Make it work first
+### Principle 1 — Make the model understandable first
 
 The first priority is:
 
-> Load a STEP file and display it.
+> Load a STEP file and inspect its structure and properties.
 
-Do not spend excessive time building abstractions before a working viewer exists.
+Do not spend excessive time building abstractions before a working model index exists. Do not make full-model rendering a prerequisite.
 
 ### Principle 2 — Keep the core small
 
@@ -698,6 +753,10 @@ The current STEP importer and viewer implementation should not become inseparabl
 
 Future requirements should influence boundaries, but should not result in large amounts of unused infrastructure.
 
+### Principle 10 — Document contracts before APIs
+
+Record API schemas, capabilities, side effects, revisions, and errors before implementing local agent operations.
+
 ---
 
 ## 20. Definition of Done for the Initial Version
@@ -709,18 +768,19 @@ The initial version is considered successful when:
 * [ ] The application deploys to Vercel
 * [ ] A user can select a local STEP file
 * [ ] The STEP file is processed in the browser
-* [ ] The resulting geometry is displayed in 3D
-* [ ] The camera can orbit
-* [ ] The camera can pan
-* [ ] The camera can zoom
-* [ ] The model can be fitted to the viewport
+* [ ] Model metadata and an entity tree/table are available before full rendering
+* [ ] Selected entity properties are available
+* [ ] Selected entity or subtree geometry can be loaded on demand
+* [ ] The selected geometry can be displayed in 3D
+* [ ] The camera can orbit, pan, zoom, and fit selected geometry
 * [ ] Invalid files do not crash the application
 * [ ] STEP data is not uploaded to a server
 * [ ] No database is required
 * [ ] The application works on a modern desktop browser
 * [ ] The application is usable on Android Chrome where practical
-* [ ] The codebase has a clear separation between application UI, STEP importing, viewer logic, and rendering
+* [ ] The codebase has a clear separation between application UI, format importing, inspection model, viewer logic, and rendering
 * [ ] At least one simple plugin can be implemented without modifying unrelated core code
+* [ ] The first local agent API operation has a documented machine-readable contract
 
 ---
 
@@ -735,7 +795,7 @@ When implementing this project:
 5. Prefer client-side processing of STEP files.
 6. Keep CAD processing separate from React UI.
 7. Avoid putting large CAD objects or meshes into Redux state.
-8. Use redux-saga for application-level asynchronous workflows where appropriate.
+8. Use redux-saga only for application-level asynchronous workflows where it is useful.
 9. Use Web Workers for CPU-intensive processing when practical.
 10. Prefer TypeScript and browser technologies.
 11. Use C++ only when a web implementation is insufficient for a real technical requirement.
@@ -747,15 +807,15 @@ When implementing this project:
 17. Favor permissive open-source licenses.
 18. Do not upload user CAD files without explicit user action.
 19. Avoid Vercel-specific APIs unless they are genuinely necessary.
-20. Prioritize a working STEP viewer over architectural perfection.
+20. Prioritize a working STEP inspection workflow over architectural perfection.
 
 ---
 
 ## 22. First Task
 
-Start by creating the minimum viable STEP Viewer.
+Start by creating the minimum viable STEP inspection workflow.
 
-Do not implement measurements, model trees, authentication, cloud storage, user accounts, online sharing, databases, or other advanced features yet.
+Do not implement measurements, editing, cloud storage, user accounts, online sharing, databases, or full-model rendering yet.
 
 The first implementation should achieve:
 
@@ -766,11 +826,11 @@ Select STEP File
       ↓
 Process STEP Locally
       ↓
-Generate Geometry
+Build Metadata and Entity Index
       ↓
-Display 3D Model
+Show Entity Tree/Table and Properties
       ↓
-Rotate / Pan / Zoom
+Optionally Request Selected Geometry
 ```
 
-After this works reliably, evaluate the architecture based on actual implementation experience before adding additional functionality.
+After this works reliably, add selected geometry, then evaluate importer and renderer choices based on actual implementation experience before adding other formats or editing.
