@@ -7,3 +7,6 @@ coverage/
 npm-debug.log*
 .env
 .env.*
+
+# Local-only third-party CAD test data. Never commit or distribute these files.
+/test-data/

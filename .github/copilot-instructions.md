@@ -29,6 +29,17 @@ Current milestone priorities:
 
 Do not expand the scope into a broad renderer or full CAD suite before the structure and inspection flow is working.
 
+## Restricted test data
+
+The JAMA role-model STEP files are local-only test data.
+
+- Store downloaded files only under the ignored `test-data/` directory.
+- Never copy, move, rename, modify, publish, distribute, sell, or commit these files.
+- Never include the files or derived copies in source code, screenshots, fixtures, archives, build output, or AI prompts.
+- Do not upload the files to external services or send them to an AI service.
+- Use the files only for local manual verification unless permission is confirmed separately.
+- Do not download or relocate the files automatically; ask the user to place them locally when needed.
+
 ## Plugin-first rule
 
 When adding functionality, prefer a plugin boundary rather than embedding logic deeply in the application core.

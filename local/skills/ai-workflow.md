@@ -32,6 +32,8 @@ Before changing an architecture boundary, read:
 - Represent future edits as validated change sets and export new files.
 - Keep file-format details behind importer adapters.
 - Keep local agent operations behind documented, versioned contracts.
+- Treat third-party licensed CAD files as restricted local test data. Do not copy, move, upload, modify, commit, or distribute them.
+- Use only the ignored `test-data/` directory for such files, and ask the user to place them there manually.
 - Use English in all docs and code comments.
 - Prefer simple, explicit code over abstract design theater.
 

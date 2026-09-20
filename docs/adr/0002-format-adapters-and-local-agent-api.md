@@ -21,12 +21,15 @@
 - Keep data local by default.
 - Separate read-only analysis from editing.
 - Document contracts before implementation.
+- Record dependency licenses before implementation.
+- Allow LGPL-2.1 candidates after explicit review.
 
 ## Decision
 
 - Add future formats through independent importer adapters.
 - Adapters produce the common CADYomi inspection model.
 - Adapters report unsupported features and capabilities.
+- Each adapter records its license, source, version, and browser/WASM requirements.
 - Keep format support separate from rendering.
 - Provide a versioned local agent API over the common model.
 - Use stable model and entity IDs.
@@ -100,6 +103,22 @@ Add editing later:
   - Rejected because it is fragile and cannot express CAD revisions.
 - Hosted CAD agent API:
   - Deferred because it conflicts with local-first privacy and adds backend scope.
+
+## License Gate
+
+- MIT/BSD/Apache remain preferred for new dependencies.
+- LGPL-2.1 is an acceptable candidate when its conditions are satisfied.
+- AGPL is not an automatic candidate for the browser application.
+- An adapter may be proposed only after reviewing:
+  - Direct and transitive licenses
+  - WASM and generated-code obligations
+  - Distribution requirements
+  - Source and notice requirements
+  - Whether the license is compatible with the intended CADYomi distribution
+- If a permissive browser parser is unavailable, choose between:
+  - A maintained BSD-licensed native/WASM adapter
+  - `occt-import-js` or `opencascade.js` under LGPL after explicit legal review
+  - Delaying the feature
 
 ## Follow-up
 

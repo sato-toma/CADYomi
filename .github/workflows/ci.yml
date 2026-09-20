@@ -26,6 +26,15 @@ jobs:
           node-version: 24
           cache: npm
 
+      - name: Reject restricted test data
+        shell: pwsh
+        run: |
+          $trackedFiles = git ls-files -- 'test-data/'
+          if ($trackedFiles) {
+            Write-Error "Restricted local test data must not be tracked."
+            exit 1
+          }
+
       - name: Install dependencies
         run: npm install
 

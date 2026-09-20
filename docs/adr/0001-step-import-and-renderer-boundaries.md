@@ -18,6 +18,7 @@
   - OCCT/XDE
   - `opencascade.js`
   - `occt-import-js`
+  - STEPcode
   - Three.js
   - Babylon.js
 
@@ -27,7 +28,9 @@
 - Keep CAD files local by default.
 - Support progressive loading on mobile.
 - Keep importer and renderer implementations replaceable.
-- Avoid selecting a library before a representative proof of concept.
+- Select a library through a representative proof of concept.
+- Prefer permissive licensing, but do not ignore CAD-kernel license obligations.
+- Avoid replacing one memory-heavy full-file parse with another.
 
 ## Decision
 
@@ -45,7 +48,10 @@
 - Keep the original STEP file immutable during a session.
 - Represent future edits as validated change sets.
 - Export a new STEP file after review; do not silently overwrite the source.
-- Do not add OCCT, importer, or renderer dependencies before the proof of concept.
+- Treat LGPL-2.1 as an acceptable candidate license after license review.
+- Use `occt-import-js` as the first STEP importer proof-of-concept candidate.
+- Keep it behind the importer adapter and do not make its result the application model.
+- Do not accept it as the production importer until large-file memory and metadata tests pass.
 
 ## Progressive Inspection
 
@@ -92,15 +98,45 @@ Compare Three.js and Babylon.js using the same tessellation:
 - Kernel object lifetimes require explicit disposal.
 - STEP metadata depends on both the source file and the binding.
 - STEP export may lose unsupported entities or metadata.
+- A permissive-license parser may require a custom WebAssembly build and add substantial maintenance cost.
 
 ## Alternatives Considered
+
+### Maintenance Assessment (2026-09-20)
+
+| Candidate | Maintenance signal | Why it is not the sole production choice yet |
+| --- | --- | --- |
+| `occt-import-js` | Latest release `0.0.23`; repository activity is about two years old | Browser-ready, but API surface is narrow and it tessellates during STEP import; large-file memory must be measured |
+| `opencascade.js` | Latest npm release `1.1.1` is about six years old; OCCT 7.4.0-era package | Broad OCCT access, but old distribution, incomplete/untested bindings, and heavier integration |
+| STEPcode | Active repository development and BSD-3-Clause license | C++/Python-oriented; no maintained browser/WASM package for this application |
+| xeokit | Active releases and maintenance | AGPL-3.0, viewer/BIM SDK rather than a STEP parser |
+
+No candidate currently satisfies all of these requirements at once:
+
+- Active maintenance
+- Browser/WASM support
+- STEP parsing
+- XDE-like structure and metadata
+- Acceptable license
+- Predictable large-file memory behavior
+
+Therefore, `occt-import-js` is selected for the first browser PoC, not accepted as the final production importer.
 
 - `occt-import-js` as the final importer:
   - Useful for a fast mesh prototype.
   - Not sufficient as the complete XDE inspection API by itself.
+  - LGPL-2.1; acceptable as a candidate after license review.
 - `opencascade.js` as the immediate dependency:
   - Broader OCCT access may be useful.
   - XDE coverage, memory behavior, and worker integration need proof.
+  - LGPL-2.1-only; acceptable as a candidate after license review.
+- STEPcode as a browser dependency:
+  - 3-clause BSD and therefore permissively licensed.
+  - Primarily a C++ library; browser use requires a maintained WebAssembly build and JavaScript bindings.
+  - Does not automatically provide OCCT/XDE geometry, tessellation, or XDE metadata services.
+- xeokit as the importer:
+  - AGPL-3.0 and focused on viewing converted BIM data.
+  - Not a STEP parser; rejected for this importer boundary.
 - Full-model rendering first:
   - Rejected because it delays inspection and increases mobile memory use.
 - Direct STEP byte editing:
