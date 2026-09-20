@@ -6,7 +6,7 @@ function App() {
     return (
         <main className="app-shell">
             <aside className="sidebar">
-                <h1>CADLens</h1>
+                <h1>CADYomi</h1>
                 <p>STEP inspection workspace</p>
                 <ul>
                     <li>Model tree</li>
