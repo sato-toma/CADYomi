@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -38,11 +39,25 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Restore cached STEP fixture
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: test-data
+          key: jama-step-sheet-metal-ap242-p21
+          restore-keys: |
+            jama-step-
+
       - name: Typecheck
         run: npm run typecheck
 
       - name: Lint
         run: npm run lint
+
+      - name: Test
+        env:
+          STEP_TEST_URL: ${{ vars.STEP_TEST_URL || 'https://www.jama.or.jp/operation/it/dg_egr/docs/02-01_role_model_data-SMP/Sheet_Metal_Parts_STEP_AP242_P21.zip' }}
+        shell: pwsh
+        run: npm test
 
       - name: Build
         run: npm run build

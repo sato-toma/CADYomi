@@ -20,6 +20,8 @@
 
 ## Application
 
-- Read only after the user selects a local file.
-- Never fetch from the JAMA page.
-- Never upload or copy the file elsewhere.
+- Read only after the user selects a local file or a CI cache restore point.
+- Use the publicly released JAMA STEP files only as a cached test fixture, never as committed source data.
+- Keep the downloaded file in the ignored `test-data/` directory or in the GitHub Actions cache.
+- Never upload, redistribute, or republish the file.
+- Never copy the cached asset into a repository commit or artifact.
