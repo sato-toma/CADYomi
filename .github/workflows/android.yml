@@ -1,0 +1,92 @@
+name: Android
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    android:
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+            - name: Set up Node.js
+              uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+              with:
+                  node-version: 24
+                  cache: npm
+
+            - name: Set up Java
+              uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+              with:
+                  distribution: temurin
+                  java-version: 21
+
+            - name: Set up Android SDK
+              uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+
+            - name: Install JavaScript dependencies
+              run: npm ci
+
+            - name: Build web assets and sync Capacitor
+              run: npm run cap:sync
+
+            - name: Run Android unit tests
+              working-directory: android
+              run: ./gradlew testDebugUnitTest --stacktrace
+
+            - name: Build debug APK
+              working-directory: android
+              run: ./gradlew assembleDebug --stacktrace
+
+            - name: Archive debug APK
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+              with:
+                  name: cadyomi-android-debug-${{ github.sha }}
+                  path: android/app/build/outputs/apk/debug/*.apk
+                  if-no-files-found: error
+                  retention-days: 14
+
+    android-instrumented:
+        runs-on: ubuntu-latest
+        timeout-minutes: 40
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+            - name: Set up Node.js
+              uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+              with:
+                  node-version: 24
+                  cache: npm
+
+            - name: Set up Java
+              uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+              with:
+                  distribution: temurin
+                  java-version: 21
+
+            - name: Set up Android SDK
+              uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+
+            - name: Install JavaScript dependencies
+              run: npm ci
+
+            - name: Build web assets and sync Capacitor
+              run: npm run cap:sync
+
+            - name: Run Android instrumentation test
+              uses: reactivecircus/android-emulator-runner@1dcd0090116d15e7c562f8db72807de5e036a4ed # v2.34.0
+              with:
+                  api-level: 35
+                  target: google_apis
+                  arch: x86_64
+                  profile: Pixel_6
+                  script: cd android && ./gradlew connectedDebugAndroidTest --stacktrace
