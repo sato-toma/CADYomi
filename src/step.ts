@@ -1,7 +1,23 @@
+export interface StepMeshData {
+    name?: string;
+    color?: [number, number, number];
+    attributes: {
+        position: { array: number[] };
+        normal?: { array: number[] };
+    };
+    index: { array: number[] };
+    brep_faces?: Array<{
+        first: number;
+        last: number;
+        color?: [number, number, number] | null;
+    }>;
+}
+
 export interface StepEntity {
     id: string;
     type: string;
     raw: string;
+    meshIndices: number[];
 }
 
 export interface StepInspection {
@@ -9,6 +25,7 @@ export interface StepInspection {
     fileSize: number;
     header: string[];
     entities: StepEntity[];
+    meshes: StepMeshData[];
     importer: "occt-import-js";
 }
 
@@ -21,7 +38,7 @@ export interface OcctNode {
 export interface OcctImportResult {
     success: boolean;
     root?: OcctNode;
-    meshes?: unknown[];
+    meshes?: StepMeshData[];
 }
 
 function flattenNode(
@@ -30,13 +47,15 @@ function flattenNode(
     entities: StepEntity[],
 ): void {
     const name = node.name?.trim() || "Unnamed node";
-    const id = path === "0" ? "root" : path;
-    const meshCount = node.meshes?.length ?? 0;
+    const id = path;
+    const meshIndices = Array.isArray(node.meshes) ? [...node.meshes] : [];
+    const meshCount = meshIndices.length;
 
     entities.push({
         id,
         type: meshCount > 0 ? "GEOMETRY_NODE" : "ASSEMBLY_NODE",
-        raw: JSON.stringify({ name, meshCount }),
+        raw: JSON.stringify({ name, meshCount, meshIndices }),
+        meshIndices,
     });
 
     node.children?.forEach((child, index) => {
@@ -65,6 +84,7 @@ export function createInspectionFromOcct(
         fileSize,
         header: [],
         entities,
+        meshes: Array.isArray(result.meshes) ? [...result.meshes] : [],
         importer: "occt-import-js",
     };
 }

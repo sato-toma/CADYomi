@@ -1,7 +1,8 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
+import * as THREE from "three";
 import "./styles.css";
-import type { StepEntity, StepInspection } from "./step";
+import type { StepEntity, StepInspection, StepMeshData } from "./step";
 
 type StepWorkerResponse =
     | { ok: true; result: StepInspection }
@@ -9,12 +10,140 @@ type StepWorkerResponse =
 
 function App() {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const viewerRef = useRef<HTMLDivElement>(null);
+    const sceneRef = useRef<THREE.Scene | null>(null);
+    const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+    const rootGroupRef = useRef<THREE.Group | null>(null);
     const [inspection, setInspection] = useState<StepInspection | null>(null);
     const [selectedEntity, setSelectedEntity] = useState<StepEntity | null>(
         null,
     );
     const [loadingStatus, setLoadingStatus] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!viewerRef.current) {
+            return;
+        }
+
+        const container = viewerRef.current;
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0b1220);
+        sceneRef.current = scene;
+
+        const camera = new THREE.PerspectiveCamera(
+            45,
+            container.clientWidth / container.clientHeight || 1,
+            0.1,
+            100000,
+        );
+        camera.position.set(200, 200, 200);
+        cameraRef.current = camera;
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.4);
+        directionalLight.position.set(120, 180, 220);
+        scene.add(directionalLight);
+
+        const grid = new THREE.GridHelper(200, 20, 0x4a627d, 0x223548);
+        scene.add(grid);
+
+        const rootGroup = new THREE.Group();
+        rootGroupRef.current = rootGroup;
+        scene.add(rootGroup);
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: true,
+        });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+
+        const resize = () => {
+            if (!container) {
+                return;
+            }
+
+            const width = container.clientWidth || 1;
+            const height = container.clientHeight || 1;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        };
+
+        const handleResize = () => resize();
+        window.addEventListener("resize", handleResize);
+
+        renderer.setAnimationLoop(() => {
+            renderer.render(scene, camera);
+        });
+
+        return () => {
+            window.removeEventListener("resize", handleResize);
+            renderer.setAnimationLoop(null);
+            rootGroup.clear();
+            renderer.dispose();
+            if (container.contains(renderer.domElement)) {
+                container.removeChild(renderer.domElement);
+            }
+            sceneRef.current = null;
+            cameraRef.current = null;
+            rootGroupRef.current = null;
+        };
+    }, []);
+
+    useEffect(() => {
+        const scene = sceneRef.current;
+        const camera = cameraRef.current;
+        const rootGroup = rootGroupRef.current;
+
+        if (!scene || !camera || !rootGroup) {
+            return;
+        }
+
+        rootGroup.clear();
+
+        if (
+            !inspection ||
+            !selectedEntity ||
+            selectedEntity.meshIndices.length === 0
+        ) {
+            return;
+        }
+
+        const selectedMeshes = selectedEntity.meshIndices
+            .map((meshIndex) => inspection.meshes[meshIndex])
+            .filter((mesh): mesh is StepMeshData => Boolean(mesh));
+
+        if (selectedMeshes.length === 0) {
+            return;
+        }
+
+        const nextGroup = new THREE.Group();
+        for (const meshData of selectedMeshes) {
+            nextGroup.add(buildMeshFromStep(meshData));
+        }
+
+        rootGroup.add(nextGroup);
+
+        const box = new THREE.Box3().setFromObject(nextGroup);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const maxSize = Math.max(size.x, size.y, size.z, 1);
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+
+        const distance = maxSize * 1.8;
+        camera.position.set(
+            center.x + distance,
+            center.y + distance * 0.8,
+            center.z + distance * 0.9,
+        );
+        camera.lookAt(center);
+    }, [inspection, selectedEntity]);
 
     async function handleFileChange(
         event: React.ChangeEvent<HTMLInputElement>,
@@ -200,6 +329,16 @@ function App() {
                                     <dd>{selectedEntity.type}</dd>
                                 </div>
                                 <div>
+                                    <dt>Mesh references</dt>
+                                    <dd>
+                                        {selectedEntity.meshIndices.length > 0
+                                            ? selectedEntity.meshIndices.join(
+                                                  ", ",
+                                              )
+                                            : "No direct mesh data"}
+                                    </dd>
+                                </div>
+                                <div>
                                     <dt>Raw record</dt>
                                     <dd className="raw-record">
                                         {selectedEntity.raw}
@@ -211,6 +350,11 @@ function App() {
                                 Entity properties will appear here.
                             </p>
                         )}
+
+                        <div className="viewer-panel">
+                            <div ref={viewerRef} className="viewer-canvas" />
+                        </div>
+
                         {inspection && (
                             <div className="file-summary">
                                 <span>File size</span>
@@ -224,6 +368,48 @@ function App() {
             </section>
         </main>
     );
+}
+
+function buildMeshFromStep(mesh: StepMeshData): THREE.Mesh {
+    const geometry = new THREE.BufferGeometry();
+    const positionArray = new Float32Array(mesh.attributes.position.array);
+    geometry.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(positionArray, 3),
+    );
+
+    if (mesh.attributes.normal) {
+        geometry.setAttribute(
+            "normal",
+            new THREE.Float32BufferAttribute(
+                new Float32Array(mesh.attributes.normal.array),
+                3,
+            ),
+        );
+    } else {
+        geometry.computeVertexNormals();
+    }
+
+    const indexArray = mesh.index?.array ?? [];
+    if (indexArray.length > 0) {
+        geometry.setIndex(
+            new THREE.BufferAttribute(Uint32Array.from(indexArray), 1),
+        );
+    }
+
+    const color = mesh.color
+        ? new THREE.Color(mesh.color[0], mesh.color[1], mesh.color[2])
+        : new THREE.Color(0xcccccc);
+
+    const material = new THREE.MeshPhongMaterial({
+        color,
+        specular: 0,
+        side: THREE.DoubleSide,
+    });
+
+    const meshObject = new THREE.Mesh(geometry, material);
+    meshObject.name = mesh.name ?? "STEP mesh";
+    return meshObject;
 }
 
 function formatBytes(bytes: number): string {

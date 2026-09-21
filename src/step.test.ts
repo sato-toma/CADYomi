@@ -34,6 +34,53 @@ const fixturePaths = (() => {
 })();
 
 describe("STEP import contract", () => {
+    it("includes mesh references on selected tree nodes", () => {
+        const inspection = createInspectionFromOcct("demo.step", 12, {
+            success: true,
+            root: {
+                name: "Root",
+                meshes: [0],
+                children: [
+                    {
+                        name: "Part A",
+                        meshes: [1, 2],
+                        children: [],
+                    },
+                    {
+                        name: "Part B",
+                        meshes: [],
+                        children: [],
+                    },
+                ],
+            },
+            meshes: [
+                { name: "mesh-0" },
+                { name: "mesh-1" },
+                { name: "mesh-2" },
+            ],
+        });
+
+        expect(inspection.entities).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    id: "0",
+                    type: "GEOMETRY_NODE",
+                    meshIndices: [0],
+                }),
+                expect.objectContaining({
+                    id: "0.0",
+                    type: "GEOMETRY_NODE",
+                    meshIndices: [1, 2],
+                }),
+                expect.objectContaining({
+                    id: "0.1",
+                    type: "ASSEMBLY_NODE",
+                    meshIndices: [],
+                }),
+            ]),
+        );
+    });
+
     it.each(fixturePaths.length > 0 ? fixturePaths : [null])(
         "parses a valid STEP file and yields a non-empty model tree: %s",
         async (fixturePath) => {
