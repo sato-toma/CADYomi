@@ -38,6 +38,9 @@ jobs:
             - name: Build web assets and sync Capacitor
               run: npm run cap:sync
 
+            - name: Make Gradle wrapper executable
+              run: chmod +x android/gradlew
+
             - name: Run Android unit tests
               working-directory: android
               run: ./gradlew testDebugUnitTest --stacktrace
@@ -83,6 +86,9 @@ jobs:
 
             - name: Build web assets and sync Capacitor
               run: npm run cap:sync
+
+            - name: Make Gradle wrapper executable
+              run: chmod +x android/gradlew
 
             - name: Run Android instrumentation test
               uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
