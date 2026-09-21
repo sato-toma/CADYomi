@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">CADYomi</string>
+    <string name="title_activity_main">CADYomi</string>
+    <string name="package_name">com.cadyomi.inspector</string>
+    <string name="custom_url_scheme">com.cadyomi.inspector</string>
+</resources>

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+release/
+release-test/
 .vite/
 coverage/
 *.tsbuildinfo
