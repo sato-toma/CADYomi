@@ -1,4 +1,9 @@
-import type { OcctOpenedDocument, OcctWasmBridge } from "./occt-wasm-bridge";
+import {
+    type OcctOpenedDocument,
+    type OcctWasmBridge,
+    type TessellationQuality,
+    tessellationPresets,
+} from "./occt-wasm-bridge";
 import type { StepEntity, StepInspection, StepMeshData } from "./step";
 
 export interface GeometryBounds {
@@ -8,7 +13,10 @@ export interface GeometryBounds {
 
 export interface GeometrySession {
     readonly inspection: StepInspection;
-    loadSelectedNodeGeometry(entity: StepEntity): Promise<StepMeshData[]>;
+    loadSelectedNodeGeometry(
+        entity: StepEntity,
+        quality?: TessellationQuality,
+    ): Promise<StepMeshData[]>;
     loadPreviewBoundingBox(entity: StepEntity): Promise<GeometryBounds>;
     dispose(): void;
 }
@@ -96,10 +104,9 @@ export function createOcctGeometrySession(
     return {
         inspection: opened.inspection,
 
-        loadSelectedNodeGeometry(entity) {
+        loadSelectedNodeGeometry(entity, quality = "draft") {
             return bridge.tessellateEntity(opened.documentHandle, entity.id, {
-                linearDeflection: 0.001,
-                angularDeflection: 0.5,
+                ...tessellationPresets[quality],
             });
         },
 

@@ -27,6 +27,10 @@ The 120-second timeout is a guard against an indefinitely pending worker. It is 
 
 The application must continue to show lightweight metadata before the eager import finishes. Worker failures must preserve that metadata view and expose the underlying error where available.
 
+The document-backed XDE session uses the `draft` preset by default for a
+selected entity. `normal` and `precise` presets are available to callers, but
+the current UI does not expose a quality selector yet.
+
 ## Consequences
 
 ### Positive

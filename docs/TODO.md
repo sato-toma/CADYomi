@@ -7,7 +7,7 @@
 - [ ] Implement `getEntityBounds(handle, entityId)` without tessellation.
 - [ ] Implement `tessellateEntity(handle, entityId, options)` for one entity at a time.
 - [ ] Support selected subtrees by resolving assembly descendants without tessellating unrelated nodes.
-- [ ] Add tessellation quality presets such as draft, normal, and precise instead of hard-coded values.
+- [x] Add tessellation quality presets such as draft, normal, and precise instead of hard-coded values.
 - [ ] Add progress events and cancellation for import and tessellation.
 - [ ] Replace the fixed 120-second timeout with operation-specific cancellation and a device-aware limit.
 - [ ] Release selected mesh buffers when selection changes.

@@ -125,6 +125,7 @@ describe("STEP import contract", () => {
 
     it("tessellates only the selected entity through an OCCT document bridge", async () => {
         const calls: string[] = [];
+        const tessellationOptions: number[] = [];
         const bridge = {
             async openStep() {
                 return {
@@ -152,8 +153,13 @@ describe("STEP import contract", () => {
                     size: { x: 4, y: 5, z: 6 },
                 };
             },
-            async tessellateEntity(documentHandle: string, entityId: string) {
+            async tessellateEntity(
+                documentHandle: string,
+                entityId: string,
+                options: { linearDeflection: number },
+            ) {
                 calls.push(`tessellate:${documentHandle}:${entityId}`);
+                tessellationOptions.push(options.linearDeflection);
                 return [];
             },
             releaseDocument(documentHandle: string) {
@@ -170,15 +176,18 @@ describe("STEP import contract", () => {
         const entity = session.inspection.entities[0];
 
         await session.loadSelectedNodeGeometry(entity);
+        await session.loadSelectedNodeGeometry(entity, "precise");
         await session.loadPreviewBoundingBox(entity);
         session.dispose();
         session.dispose();
 
         expect(calls).toEqual([
             "tessellate:document-1:0.1",
+            "tessellate:document-1:0.1",
             "bounds:document-1:0.1",
             "release:document-1",
         ]);
+        expect(tessellationOptions).toEqual([0.01, 0.0001]);
     });
 
     it("includes mesh references on selected tree nodes", () => {
@@ -201,9 +210,21 @@ describe("STEP import contract", () => {
                 ],
             },
             meshes: [
-                { name: "mesh-0" },
-                { name: "mesh-1" },
-                { name: "mesh-2" },
+                {
+                    name: "mesh-0",
+                    attributes: { position: { array: [] } },
+                    index: { array: [] },
+                },
+                {
+                    name: "mesh-1",
+                    attributes: { position: { array: [] } },
+                    index: { array: [] },
+                },
+                {
+                    name: "mesh-2",
+                    attributes: { position: { array: [] } },
+                    index: { array: [] },
+                },
             ],
         });
 
