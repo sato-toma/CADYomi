@@ -757,9 +757,64 @@ Future requirements should influence boundaries, but should not result in large 
 
 Record API schemas, capabilities, side effects, revisions, and errors before implementing local agent operations.
 
+### Principle 11 — Separate structure parsing from tessellation
+
+The importer should provide structure and property inspection as quickly as possible.
+
+Do not require full geometry tessellation for the initial inspection workflow. The UI should be able to show the assembly tree, entity metadata, and property records before full mesh generation is complete.
+
+### Principle 12 — Load geometry lazily
+
+Geometry generation should be triggered by user selection or a clearly defined preview workflow, not during the first file read.
+
+This keeps early loading fast and allows the viewer to show a lightweight placeholder or a simple bounding-volume preview while heavier geometry is generated in the background.
+
+### Principle 13 — Prefer a native geometry boundary when the browser layer becomes the bottleneck
+
+If the browser importer cannot keep the inspection flow responsive, move the heavy geometry and tessellation work behind a native or WebAssembly boundary.
+
+A C++ / OCCT WASM layer is acceptable when the technical need is proven. The browser layer should remain a UI and orchestration layer, not the place where all CAD processing is forced to live.
+
+### Principle 14 — Keep model understanding, geometry, and rendering as separate responsibilities
+
+The system should separate:
+
+* assembly and property parsing
+* selected-node geometry loading
+* tessellation and mesh generation
+* viewer rendering and selection feedback
+
+This allows a lighter inspection workflow now and a stronger native geometry backend later without rewriting the application architecture.
+
 ---
 
-## 20. Definition of Done for the Initial Version
+## 20. Development Plan for Lightweight STEP Inspection
+
+The initial product goal is not a full CAD renderer. The first goal is a fast, usable inspection workflow.
+
+Priority shift for the next implementation stage:
+
+1. Treat the C++ / OCCT WebAssembly path as the priority architecture for heavy geometry work.
+2. Keep the browser layer focused on inspection, selection, and viewer orchestration.
+3. Use browser-only parsing only as a temporary fallback or lightweight prototype while the native path is being prepared.
+4. Use lazy geometry generation for selected nodes rather than importing and tessellating the entire model on the first pass.
+5. Keep a simple bounding-box or placeholder preview while the heavier geometry is loading in the background.
+
+Immediate roadmap:
+
+1. Define a clear importer boundary with separate responsibilities for structure parsing, property access, and geometry tessellation.
+2. Build a native geometry adapter around C++ / OCCT and expose a minimal WebAssembly interface for reading STEP structure and selected-node geometry.
+3. Keep the browser UI responsible for the assembly tree, property inspection, and selection flow.
+4. Use the browser preview layer only for lightweight 3D display and user interactions. The heavy CAD work remains behind the native geometry boundary.
+5. Connect selected-node requests to the native layer and render the result in the viewer without blocking the initial inspection flow.
+6. Add a simplified preview pass for fast bounding-box or box placeholder display if the native tessellation is still working in the background.
+7. Keep the viewer and renderer replaceable as the native geometry boundary evolves.
+
+This strategy moves the project toward a realistic long-term architecture while preserving a fast inspection workflow in the browser.
+
+---
+
+## 21. Definition of Done for the Initial Version
 
 The initial version is considered successful when:
 

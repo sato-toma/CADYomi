@@ -2,6 +2,10 @@ import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import * as THREE from "three";
 import "./styles.css";
+import {
+    browserGeometryBackend,
+    resolveSelectedGeometry,
+} from "./geometry-backend";
 import type { StepEntity, StepInspection, StepMeshData } from "./step";
 
 type StepWorkerResponse =
@@ -82,6 +86,7 @@ function App() {
         });
 
         return () => {
+            browserGeometryBackend.dispose();
             window.removeEventListener("resize", handleResize);
             renderer.setAnimationLoop(null);
             rootGroup.clear();
@@ -114,35 +119,70 @@ function App() {
             return;
         }
 
-        const selectedMeshes = selectedEntity.meshIndices
-            .map((meshIndex) => inspection.meshes[meshIndex])
-            .filter((mesh): mesh is StepMeshData => Boolean(mesh));
+        const activeInspection: StepInspection = inspection;
+        const activeEntity: StepEntity = selectedEntity;
+        const activeRootGroup = rootGroup;
+        const activeCamera = camera;
 
-        if (selectedMeshes.length === 0) {
-            return;
+        let cancelled = false;
+
+        async function updateSelectedGeometry() {
+            const selectedMeshes = await resolveSelectedGeometry(
+                browserGeometryBackend,
+                activeInspection,
+                activeEntity,
+            );
+
+            if (cancelled) {
+                return;
+            }
+
+            if (selectedMeshes.length === 0) {
+                return;
+            }
+
+            const nextGroup = new THREE.Group();
+            for (const meshData of selectedMeshes) {
+                nextGroup.add(buildMeshFromStep(meshData));
+            }
+
+            activeRootGroup.add(nextGroup);
+
+            const bounds = await browserGeometryBackend.loadPreviewBoundingBox(
+                activeInspection,
+                activeEntity,
+            );
+
+            if (cancelled) {
+                return;
+            }
+
+            const center = new THREE.Vector3(
+                bounds.center.x,
+                bounds.center.y,
+                bounds.center.z,
+            );
+            const size = new THREE.Vector3(
+                bounds.size.x,
+                bounds.size.y,
+                bounds.size.z,
+            );
+            const maxSize = Math.max(size.x, size.y, size.z, 1);
+            const distance = maxSize * 1.8;
+
+            activeCamera.position.set(
+                center.x + distance,
+                center.y + distance * 0.8,
+                center.z + distance * 0.9,
+            );
+            activeCamera.lookAt(center);
         }
 
-        const nextGroup = new THREE.Group();
-        for (const meshData of selectedMeshes) {
-            nextGroup.add(buildMeshFromStep(meshData));
-        }
+        void updateSelectedGeometry();
 
-        rootGroup.add(nextGroup);
-
-        const box = new THREE.Box3().setFromObject(nextGroup);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const maxSize = Math.max(size.x, size.y, size.z, 1);
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-
-        const distance = maxSize * 1.8;
-        camera.position.set(
-            center.x + distance,
-            center.y + distance * 0.8,
-            center.z + distance * 0.9,
-        );
-        camera.lookAt(center);
+        return () => {
+            cancelled = true;
+        };
     }, [inspection, selectedEntity]);
 
     async function handleFileChange(
