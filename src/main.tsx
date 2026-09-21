@@ -8,10 +8,6 @@ import {
 } from "./geometry-backend";
 import type { StepEntity, StepInspection, StepMeshData } from "./step";
 
-type StepWorkerResponse =
-    | { ok: true; result: StepInspection }
-    | { ok: false; error: string };
-
 function App() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const viewerRef = useRef<HTMLDivElement>(null);
@@ -22,6 +18,9 @@ function App() {
     const [selectedEntity, setSelectedEntity] = useState<StepEntity | null>(
         null,
     );
+    const [selectedMeshes, setSelectedMeshes] = useState<StepMeshData[]>([]);
+    const [selectedGeometryLoading, setSelectedGeometryLoading] =
+        useState(false);
     const [loadingStatus, setLoadingStatus] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
@@ -111,74 +110,78 @@ function App() {
 
         rootGroup.clear();
 
-        if (
-            !inspection ||
-            !selectedEntity ||
-            selectedEntity.meshIndices.length === 0
-        ) {
+        if (!inspection || !selectedEntity) {
             return;
         }
 
-        const activeInspection: StepInspection = inspection;
-        const activeEntity: StepEntity = selectedEntity;
         const activeRootGroup = rootGroup;
         const activeCamera = camera;
+        const nextGroup = new THREE.Group();
+        for (const meshData of selectedMeshes) {
+            nextGroup.add(buildMeshFromStep(meshData));
+        }
+        activeRootGroup.add(nextGroup);
 
-        let cancelled = false;
-
-        async function updateSelectedGeometry() {
-            const selectedMeshes = await resolveSelectedGeometry(
-                browserGeometryBackend,
-                activeInspection,
-                activeEntity,
-            );
-
-            if (cancelled) {
-                return;
-            }
-
-            if (selectedMeshes.length === 0) {
-                return;
-            }
-
-            const nextGroup = new THREE.Group();
-            for (const meshData of selectedMeshes) {
-                nextGroup.add(buildMeshFromStep(meshData));
-            }
-
-            activeRootGroup.add(nextGroup);
-
-            const bounds = await browserGeometryBackend.loadPreviewBoundingBox(
-                activeInspection,
-                activeEntity,
-            );
-
-            if (cancelled) {
-                return;
-            }
-
-            const center = new THREE.Vector3(
-                bounds.center.x,
-                bounds.center.y,
-                bounds.center.z,
-            );
-            const size = new THREE.Vector3(
-                bounds.size.x,
-                bounds.size.y,
-                bounds.size.z,
-            );
-            const maxSize = Math.max(size.x, size.y, size.z, 1);
-            const distance = maxSize * 1.8;
-
-            activeCamera.position.set(
-                center.x + distance,
-                center.y + distance * 0.8,
-                center.z + distance * 0.9,
-            );
-            activeCamera.lookAt(center);
+        if (selectedMeshes.length === 0) {
+            return;
         }
 
-        void updateSelectedGeometry();
+        void browserGeometryBackend
+            .loadPreviewBoundingBox(inspection, selectedEntity)
+            .then((bounds) => {
+                const center = new THREE.Vector3(
+                    bounds.center.x,
+                    bounds.center.y,
+                    bounds.center.z,
+                );
+                const size = new THREE.Vector3(
+                    bounds.size.x,
+                    bounds.size.y,
+                    bounds.size.z,
+                );
+                const distance = Math.max(size.x, size.y, size.z, 1) * 1.8;
+                activeCamera.position.set(
+                    center.x + distance,
+                    center.y + distance * 0.8,
+                    center.z + distance * 0.9,
+                );
+                activeCamera.lookAt(center);
+            });
+    }, [inspection, selectedEntity, selectedMeshes]);
+
+    useEffect(() => {
+        if (!inspection || !selectedEntity) {
+            return;
+        }
+
+        let cancelled = false;
+        setSelectedGeometryLoading(true);
+        setSelectedMeshes([]);
+
+        void resolveSelectedGeometry(
+            browserGeometryBackend,
+            inspection,
+            selectedEntity,
+        )
+            .then((meshes) => {
+                if (!cancelled) {
+                    setSelectedMeshes(meshes);
+                }
+            })
+            .catch((cause) => {
+                if (!cancelled) {
+                    setError(
+                        cause instanceof Error
+                            ? cause.message
+                            : "Unable to load selected node geometry.",
+                    );
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setSelectedGeometryLoading(false);
+                }
+            });
 
         return () => {
             cancelled = true;
@@ -198,50 +201,19 @@ function App() {
         setError(null);
         setInspection(null);
         setSelectedEntity(null);
+        setSelectedMeshes([]);
 
         try {
             const content = await file.arrayBuffer();
             setLoadingStatus("Parsing STEP with OCCT...");
-
-            const worker = new Worker(
-                new URL("./step.worker.ts", import.meta.url),
-                { type: "module" },
-            );
-
-            worker.onmessage = (response: MessageEvent<StepWorkerResponse>) => {
-                if (response.data.ok) {
-                    setInspection(response.data.result);
-                    setSelectedEntity(response.data.result.entities[0] ?? null);
-                } else {
-                    setError(response.data.error);
-                }
-
-                setLoadingStatus(null);
-                worker.terminate();
-            };
-
-            worker.onerror = () => {
-                setError(
-                    "The STEP importer worker stopped unexpectedly. Check the browser console for details.",
-                );
-                setLoadingStatus(null);
-                worker.terminate();
-            };
-
-            worker.onmessageerror = () => {
-                setError("The STEP importer returned an unreadable result.");
-                setLoadingStatus(null);
-                worker.terminate();
-            };
-
-            worker.postMessage(
-                {
-                    fileName: file.name,
-                    fileSize: file.size,
-                    content,
-                },
-                [content],
-            );
+            const result = await browserGeometryBackend.loadTree({
+                fileName: file.name,
+                fileSize: file.size,
+                content,
+            });
+            setInspection(result);
+            setSelectedEntity(result.entities[0] ?? null);
+            setLoadingStatus(null);
         } catch (cause) {
             setError(
                 cause instanceof Error
@@ -371,11 +343,14 @@ function App() {
                                 <div>
                                     <dt>Mesh references</dt>
                                     <dd>
-                                        {selectedEntity.meshIndices.length > 0
-                                            ? selectedEntity.meshIndices.join(
-                                                  ", ",
-                                              )
-                                            : "No direct mesh data"}
+                                        {selectedGeometryLoading
+                                            ? "Loading..."
+                                            : selectedEntity.meshIndices
+                                                    .length > 0
+                                              ? selectedEntity.meshIndices.join(
+                                                    ", ",
+                                                )
+                                              : "No direct mesh data"}
                                     </dd>
                                 </div>
                                 <div>

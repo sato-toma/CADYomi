@@ -2,10 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import occtImportJs from "occt-import-js";
 import { describe, expect, it } from "vitest";
-import {
-    browserGeometryBackend,
-    resolveSelectedGeometry,
-} from "./geometry-backend";
+import { browserGeometryBackend } from "./geometry-backend";
 import { createInspectionFromOcct } from "./step";
 
 const fixturePaths = (() => {

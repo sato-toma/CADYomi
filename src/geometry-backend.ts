@@ -32,9 +32,39 @@ export const browserGeometryBackend: GeometryBackend = {
             throw new Error("Browser geometry backend requires file content.");
         }
 
-        throw new Error(
-            `Native geometry backend is not wired yet for ${fileName}; the browser fallback will use the existing STEP worker for now.`,
-        );
+        return new Promise<StepInspection>((resolve, reject) => {
+            const worker = new Worker(
+                new URL("./step.worker.ts", import.meta.url),
+                { type: "module" },
+            );
+
+            const cleanup = () => worker.terminate();
+            worker.onmessage = (event: MessageEvent<StepWorkerResponse>) => {
+                cleanup();
+                if (event.data.ok) {
+                    resolve(event.data.result);
+                } else {
+                    reject(new Error(event.data.error));
+                }
+            };
+            worker.onerror = () => {
+                cleanup();
+                reject(
+                    new Error(
+                        "The STEP importer worker stopped unexpectedly. Check the browser console for details.",
+                    ),
+                );
+            };
+            worker.onmessageerror = () => {
+                cleanup();
+                reject(
+                    new Error(
+                        "The STEP importer returned an unreadable result.",
+                    ),
+                );
+            };
+            worker.postMessage({ fileName, fileSize, content }, [content]);
+        });
     },
 
     async loadSelectedNodeGeometry(inspection, entity) {
@@ -67,7 +97,11 @@ export const browserGeometryBackend: GeometryBackend = {
                 const y = positions[index + 1];
                 const z = positions[index + 2];
 
-                if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+                if (
+                    !Number.isFinite(x) ||
+                    !Number.isFinite(y) ||
+                    !Number.isFinite(z)
+                ) {
                     continue;
                 }
 
@@ -105,6 +139,10 @@ export const browserGeometryBackend: GeometryBackend = {
         // Browser fallback keeps no native resources yet.
     },
 };
+
+type StepWorkerResponse =
+    | { ok: true; result: StepInspection }
+    | { ok: false; error: string };
 
 export async function resolveSelectedGeometry(
     backend: GeometryBackend,
