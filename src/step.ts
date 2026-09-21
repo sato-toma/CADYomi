@@ -16,6 +16,8 @@ export interface StepMeshData {
 export interface StepEntity {
     id: string;
     name?: string;
+    parentId?: string;
+    depth?: number;
     type: string;
     raw: string;
     meshIndices: number[];
@@ -54,6 +56,10 @@ function flattenNode(
 
     entities.push({
         id,
+        name,
+        parentId:
+            path === "0" ? undefined : path.slice(0, path.lastIndexOf(".")),
+        depth: path.split(".").length - 1,
         type: meshCount > 0 ? "GEOMETRY_NODE" : "ASSEMBLY_NODE",
         raw: JSON.stringify({ name, meshCount, meshIndices }),
         meshIndices,

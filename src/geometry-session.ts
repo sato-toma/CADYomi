@@ -123,6 +123,50 @@ export function createOcctGeometrySession(
     };
 }
 
+export function createMappedGeometrySession(
+    displayInspection: StepInspection,
+    geometrySession: GeometrySession,
+): GeometrySession {
+    const geometryByName = new Map<string, StepEntity>();
+
+    for (const entity of geometrySession.inspection.entities) {
+        const name = entity.name?.trim().toLowerCase();
+        if (name && !geometryByName.has(name)) {
+            geometryByName.set(name, entity);
+        }
+    }
+
+    function resolveGeometryEntity(entity: StepEntity): StepEntity | null {
+        const name = entity.name?.trim().toLowerCase();
+        return name ? (geometryByName.get(name) ?? null) : null;
+    }
+
+    return {
+        inspection: displayInspection,
+
+        loadSelectedNodeGeometry(entity, quality) {
+            const geometryEntity = resolveGeometryEntity(entity);
+            return geometryEntity
+                ? geometrySession.loadSelectedNodeGeometry(
+                      geometryEntity,
+                      quality,
+                  )
+                : Promise.resolve([]);
+        },
+
+        loadPreviewBoundingBox(entity) {
+            const geometryEntity = resolveGeometryEntity(entity);
+            return geometryEntity
+                ? geometrySession.loadPreviewBoundingBox(geometryEntity)
+                : Promise.resolve(emptyBounds());
+        },
+
+        dispose() {
+            geometrySession.dispose();
+        },
+    };
+}
+
 function emptyBounds(): GeometryBounds {
     return {
         center: { x: 0, y: 0, z: 0 },

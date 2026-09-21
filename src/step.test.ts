@@ -6,7 +6,10 @@ import {
     browserGeometryBackend,
     createGeometryBackend,
 } from "./geometry-backend";
-import { createMeshGeometrySession } from "./geometry-session";
+import {
+    createMappedGeometrySession,
+    createMeshGeometrySession,
+} from "./geometry-session";
 import {
     createOcctWasmGeometryBackend,
     nativeGeometryBackend,
@@ -56,10 +59,14 @@ describe("STEP import contract", () => {
 
         expect(inspection.importer).toBe("step-metadata");
         expect(inspection.meshes).toBeUndefined();
-        expect(inspection.entities[0]).toMatchObject({
+        expect(
+            inspection.entities.find((entity) => entity.id === "step:10"),
+        ).toMatchObject({
             id: "step:10",
             name: "ENGINE",
             type: "PRODUCT",
+            parentId: "step:root",
+            depth: 1,
         });
     });
 
@@ -121,6 +128,38 @@ describe("STEP import contract", () => {
         expect(bounds.size.x).toBeGreaterThan(0);
         expect(bounds.size.y).toBeGreaterThanOrEqual(0);
         expect(bounds.center.x).toBeGreaterThanOrEqual(0);
+    });
+
+    it("keeps display IDs stable while resolving completed geometry by name", async () => {
+        const displayInspection = createInspectionFromOcct("demo.step", 12, {
+            success: true,
+            root: { name: "Display Part", meshes: [] },
+        });
+        displayInspection.entities[0].id = "step:42";
+        displayInspection.entities[0].name = "Display Part";
+
+        const geometryInspection = createInspectionFromOcct("demo.step", 12, {
+            success: true,
+            root: { name: "Display Part", meshes: [0] },
+            meshes: [
+                {
+                    name: "display-mesh",
+                    attributes: { position: { array: [0, 0, 0] } },
+                    index: { array: [0, 1, 2] },
+                },
+            ],
+        });
+        const session = createMappedGeometrySession(
+            displayInspection,
+            createMeshGeometrySession(geometryInspection),
+        );
+
+        const meshes = await session.loadSelectedNodeGeometry(
+            displayInspection.entities[0],
+        );
+
+        expect(session.inspection.entities[0].id).toBe("step:42");
+        expect(meshes.map((mesh) => mesh.name)).toEqual(["display-mesh"]);
     });
 
     it("tessellates only the selected entity through an OCCT document bridge", async () => {

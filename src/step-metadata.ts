@@ -26,8 +26,20 @@ export function createMetadataInspection(
     const entities: StepEntity[] = [];
     const sourceRecords =
         products.length > 0 ? products : records.slice(0, 200);
+    const rootId = products.length > 0 ? "step:root" : undefined;
 
-    for (const record of sourceRecords) {
+    if (rootId) {
+        entities.push({
+            id: rootId,
+            name: fileName,
+            type: "ASSEMBLY_ROOT",
+            raw: "Lightweight STEP assembly index",
+            meshIndices: [],
+            depth: 0,
+        });
+    }
+
+    for (const [index, record] of sourceRecords.entries()) {
         const name =
             productNames.get(record.id) ??
             record.raw.match(/\(\s*'([^']*)'/)?.[1] ??
@@ -35,6 +47,8 @@ export function createMetadataInspection(
         entities.push({
             id: `step:${record.id}`,
             name,
+            parentId: rootId,
+            depth: rootId ? 1 : index === 0 ? 0 : 1,
             type: record.type,
             raw: record.raw,
             meshIndices: [],

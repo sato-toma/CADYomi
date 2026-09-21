@@ -215,6 +215,8 @@ td {
 }
 
 .entity-row {
+    display: grid;
+    gap: 2px;
     width: 100%;
     padding: 0;
     border: 0;
@@ -222,6 +224,31 @@ td {
     color: #a9cbf5;
     cursor: pointer;
     text-align: left;
+}
+
+.entity-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+    color: #d7e3f7;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entity-folder-mark {
+    display: inline-grid;
+    flex: 0 0 14px;
+    place-items: center;
+    color: #7f9bc3;
+    font-family: Consolas, monospace;
+    font-weight: 700;
+}
+
+.entity-id {
+    color: #7186a6;
+    font-family: Consolas, monospace;
+    font-size: 0.72rem;
 }
 
 .entity-row:hover,

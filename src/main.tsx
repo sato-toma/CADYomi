@@ -8,6 +8,7 @@ import {
     resolveSelectedGeometry,
 } from "./geometry-backend";
 import {
+    createMappedGeometrySession,
     createMeshGeometrySession,
     type GeometrySession,
 } from "./geometry-session";
@@ -30,6 +31,7 @@ function App() {
     const [selectedMeshes, setSelectedMeshes] = useState<StepMeshData[]>([]);
     const [selectedGeometryLoading, setSelectedGeometryLoading] =
         useState(false);
+    const [renderReady, setRenderReady] = useState(false);
     const [loadingStatus, setLoadingStatus] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
@@ -217,6 +219,7 @@ function App() {
         setGeometrySession(null);
         setSelectedEntity(null);
         setSelectedMeshes([]);
+        setRenderReady(false);
 
         try {
             const content = await file.arrayBuffer();
@@ -237,9 +240,11 @@ function App() {
                 content,
             });
             metadataSession.dispose();
-            geometrySessionRef.current = result;
-            setGeometrySession(result);
-            setSelectedEntity(result.inspection.entities[0] ?? null);
+            const stableSession = createMappedGeometrySession(metadata, result);
+            geometrySessionRef.current = stableSession;
+            setGeometrySession(stableSession);
+            setSelectedEntity(metadata.entities[0] ?? null);
+            setRenderReady(true);
             setLoadingStatus(null);
         } catch (cause) {
             setError(
@@ -285,9 +290,13 @@ function App() {
                             ? loadingStatus
                             : error
                               ? "Import failed"
-                              : inspection
-                                ? `${inspection.entities.length} entities indexed`
-                                : "No file loaded"}
+                              : selectedGeometryLoading
+                                ? "Preparing selected render..."
+                                : renderReady
+                                  ? "Render ready"
+                                  : inspection
+                                    ? `${inspection.entities.length} entities indexed`
+                                    : "No file loaded"}
                     </span>
                 </header>
 
@@ -325,7 +334,7 @@ function App() {
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th scope="col">ID</th>
+                                            <th scope="col">Entity</th>
                                             <th scope="col">Entity type</th>
                                         </tr>
                                     </thead>
@@ -342,7 +351,25 @@ function App() {
                                                             )
                                                         }
                                                     >
-                                                        #{entity.id}
+                                                        <span
+                                                            className="entity-name"
+                                                            style={{
+                                                                paddingLeft: `${(entity.depth ?? 0) * 18}px`,
+                                                            }}
+                                                        >
+                                                            <span className="entity-folder-mark">
+                                                                {entity.type.includes(
+                                                                    "ASSEMBLY",
+                                                                )
+                                                                    ? ">"
+                                                                    : "-"}
+                                                            </span>
+                                                            {entity.name ??
+                                                                entity.type}
+                                                        </span>
+                                                        <span className="entity-id">
+                                                            #{entity.id}
+                                                        </span>
                                                     </button>
                                                 </td>
                                                 <td>{entity.type}</td>
@@ -358,11 +385,15 @@ function App() {
                         <p className="eyebrow">Property inspector</p>
                         <h2>
                             {selectedEntity
-                                ? `#${selectedEntity.id}`
+                                ? (selectedEntity.name ?? selectedEntity.type)
                                 : "Select an entity"}
                         </h2>
                         {selectedEntity ? (
                             <dl className="property-list">
+                                <div>
+                                    <dt>Entity ID</dt>
+                                    <dd>{selectedEntity.id}</dd>
+                                </div>
                                 <div>
                                     <dt>Type</dt>
                                     <dd>{selectedEntity.type}</dd>
