@@ -15,6 +15,7 @@ export interface StepMeshData {
 
 export interface StepEntity {
     id: string;
+    name?: string;
     type: string;
     raw: string;
     meshIndices: number[];
@@ -25,8 +26,8 @@ export interface StepInspection {
     fileSize: number;
     header: string[];
     entities: StepEntity[];
-    meshes: StepMeshData[];
-    importer: "occt-import-js";
+    meshes?: StepMeshData[];
+    importer: "occt-import-js" | "occt-xde-wasm" | "step-metadata";
 }
 
 export interface OcctNode {

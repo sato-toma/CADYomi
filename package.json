@@ -11,12 +11,14 @@
         "lint": "biome check .",
         "lint:fix": "biome check --write .",
         "format": "biome format --write .",
+        "verify:occt": "node scripts/verify-occt-binding.mjs",
         "test": "vitest run src/step.smoke.test.ts",
         "test:e2e": "node scripts/run-step-fixture-test.mjs",
         "test:step": "npm run test:e2e"
     },
     "dependencies": {
         "occt-import-js": "^0.0.23",
+        "opencascade.js": "1.1.1",
         "react": "^19.3.0",
         "react-dom": "^19.3.0",
         "three": "^0.186.0"

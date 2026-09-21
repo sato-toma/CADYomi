@@ -2,8 +2,17 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import occtImportJs from "occt-import-js";
 import { describe, expect, it } from "vitest";
-import { browserGeometryBackend } from "./geometry-backend";
+import {
+    browserGeometryBackend,
+    createGeometryBackend,
+} from "./geometry-backend";
+import { createMeshGeometrySession } from "./geometry-session";
+import {
+    createOcctWasmGeometryBackend,
+    nativeGeometryBackend,
+} from "./native-geometry-backend";
 import { createInspectionFromOcct } from "./step";
+import { createMetadataInspection } from "./step-metadata";
 
 const fixturePaths = (() => {
     const explicit = (process.env.STEP_TEST_FILE ?? "")
@@ -35,6 +44,30 @@ const fixturePaths = (() => {
 })();
 
 describe("STEP import contract", () => {
+    it("creates a metadata inspection without tessellated meshes", () => {
+        const content = new TextEncoder().encode(
+            "ISO-10303-21;#10=PRODUCT('ENGINE','',(#20));#20=PRODUCT_DEFINITION_FORMATION('', '', #30);",
+        ).buffer;
+        const inspection = createMetadataInspection(
+            "assembly.step",
+            content.byteLength,
+            content,
+        );
+
+        expect(inspection.importer).toBe("step-metadata");
+        expect(inspection.meshes).toBeUndefined();
+        expect(inspection.entities[0]).toMatchObject({
+            id: "step:10",
+            name: "ENGINE",
+            type: "PRODUCT",
+        });
+    });
+
+    it("keeps native backend selection behind the shared factory", () => {
+        expect(createGeometryBackend("browser")).toBe(browserGeometryBackend);
+        expect(createGeometryBackend("native")).toBe(nativeGeometryBackend);
+    });
+
     it("resolves a selected node through the geometry backend adapter", async () => {
         const inspection = createInspectionFromOcct("demo.step", 12, {
             success: true,
@@ -73,22 +106,79 @@ describe("STEP import contract", () => {
             ],
         });
 
-        const preview = await browserGeometryBackend.loadSelectedNodeGeometry(
-            inspection,
+        const session = createMeshGeometrySession(inspection);
+        const preview = await session.loadSelectedNodeGeometry(
             inspection.entities[1],
         );
 
         expect(preview).toHaveLength(2);
         expect(preview.map((mesh) => mesh.name)).toEqual(["mesh-1", "mesh-2"]);
 
-        const bounds = await browserGeometryBackend.loadPreviewBoundingBox(
-            inspection,
+        const bounds = await session.loadPreviewBoundingBox(
             inspection.entities[1],
         );
 
         expect(bounds.size.x).toBeGreaterThan(0);
         expect(bounds.size.y).toBeGreaterThanOrEqual(0);
         expect(bounds.center.x).toBeGreaterThanOrEqual(0);
+    });
+
+    it("tessellates only the selected entity through an OCCT document bridge", async () => {
+        const calls: string[] = [];
+        const bridge = {
+            async openStep() {
+                return {
+                    documentHandle: "document-1",
+                    inspection: {
+                        fileName: "assembly.step",
+                        fileSize: 10,
+                        header: [],
+                        entities: [
+                            {
+                                id: "0.1",
+                                type: "GEOMETRY_NODE",
+                                raw: "",
+                                meshIndices: [],
+                            },
+                        ],
+                        importer: "occt-xde-wasm" as const,
+                    },
+                };
+            },
+            async getEntityBounds(documentHandle: string, entityId: string) {
+                calls.push(`bounds:${documentHandle}:${entityId}`);
+                return {
+                    center: { x: 1, y: 2, z: 3 },
+                    size: { x: 4, y: 5, z: 6 },
+                };
+            },
+            async tessellateEntity(documentHandle: string, entityId: string) {
+                calls.push(`tessellate:${documentHandle}:${entityId}`);
+                return [];
+            },
+            releaseDocument(documentHandle: string) {
+                calls.push(`release:${documentHandle}`);
+            },
+        };
+
+        const backend = createOcctWasmGeometryBackend(bridge);
+        const session = await backend.loadTree({
+            fileName: "assembly.step",
+            fileSize: 10,
+            content: new ArrayBuffer(0),
+        });
+        const entity = session.inspection.entities[0];
+
+        await session.loadSelectedNodeGeometry(entity);
+        await session.loadPreviewBoundingBox(entity);
+        session.dispose();
+        session.dispose();
+
+        expect(calls).toEqual([
+            "tessellate:document-1:0.1",
+            "bounds:document-1:0.1",
+            "release:document-1",
+        ]);
     });
 
     it("includes mesh references on selected tree nodes", () => {

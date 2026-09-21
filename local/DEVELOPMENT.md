@@ -195,6 +195,25 @@ The preferred initial stack is:
 
 The project should remain primarily web-based.
 
+### OCCT WASM binding
+
+The repository pins `opencascade.js@1.1.1` as the OSS OCCT/Emscripten binding
+source for the future XDE bridge. Verify that the package is installed with:
+
+```sh
+npm run verify:occt
+```
+
+The package is LGPL-2.1-only and is based on OCCT 7.4.0. The TypeScript
+bridge contract lives in `src/occt-wasm-bridge.ts`. A custom XDE build should
+keep the same `openStep`, `getEntityBounds`, `tessellateEntity`, and
+`releaseDocument` operations.
+
+For custom C++ bindings, use the source included in `node_modules/opencascade.js`
+as the starting point. Add missing OCCT/XDE bindings under its `embind/`
+sources, rebuild with the package's Docker/Emscripten workflow, and then run
+`npm run verify:occt` before connecting the generated module.
+
 ### C++
 
 C++ is allowed when genuinely necessary.

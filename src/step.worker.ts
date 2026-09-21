@@ -29,7 +29,7 @@ async function handleMessage(
         const result = occt.ReadStepFile(new Uint8Array(content), {
             linearUnit: "millimeter",
             linearDeflectionType: "bounding_box_ratio",
-            linearDeflection: 0.001,
+            linearDeflection: 0.01,
             angularDeflection: 0.5,
         });
         const inspection = createInspectionFromOcct(fileName, fileSize, result);
@@ -40,7 +40,7 @@ async function handleMessage(
     } catch (cause) {
         const error =
             cause instanceof Error
-                ? cause.message
+                ? `${cause.name}: ${cause.message}`
                 : "Unable to index the selected STEP file.";
         self.postMessage({ ok: false, error } satisfies StepWorkerResponse);
     }

@@ -3,18 +3,27 @@ import ReactDOM from "react-dom/client";
 import * as THREE from "three";
 import "./styles.css";
 import {
-    browserGeometryBackend,
+    createGeometryBackend,
+    type GeometryBackend,
     resolveSelectedGeometry,
 } from "./geometry-backend";
-import type { StepEntity, StepInspection, StepMeshData } from "./step";
+import {
+    createMeshGeometrySession,
+    type GeometrySession,
+} from "./geometry-session";
+import type { StepEntity, StepMeshData } from "./step";
+import { createMetadataInspection } from "./step-metadata";
 
 function App() {
+    const geometryBackendRef = useRef<GeometryBackend | null>(null);
+    const geometrySessionRef = useRef<GeometrySession | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const viewerRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
     const rootGroupRef = useRef<THREE.Group | null>(null);
-    const [inspection, setInspection] = useState<StepInspection | null>(null);
+    const [geometrySession, setGeometrySession] =
+        useState<GeometrySession | null>(null);
     const [selectedEntity, setSelectedEntity] = useState<StepEntity | null>(
         null,
     );
@@ -23,6 +32,13 @@ function App() {
         useState(false);
     const [loadingStatus, setLoadingStatus] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    if (!geometryBackendRef.current) {
+        geometryBackendRef.current = createGeometryBackend();
+    }
+
+    const geometryBackend = geometryBackendRef.current;
+    const inspection = geometrySession?.inspection ?? null;
 
     useEffect(() => {
         if (!viewerRef.current) {
@@ -85,7 +101,8 @@ function App() {
         });
 
         return () => {
-            browserGeometryBackend.dispose();
+            geometrySessionRef.current?.dispose();
+            geometryBackend.dispose();
             window.removeEventListener("resize", handleResize);
             renderer.setAnimationLoop(null);
             rootGroup.clear();
@@ -97,7 +114,7 @@ function App() {
             cameraRef.current = null;
             rootGroupRef.current = null;
         };
-    }, []);
+    }, [geometryBackend]);
 
     useEffect(() => {
         const scene = sceneRef.current;
@@ -110,7 +127,7 @@ function App() {
 
         rootGroup.clear();
 
-        if (!inspection || !selectedEntity) {
+        if (!geometrySession || !selectedEntity) {
             return;
         }
 
@@ -126,8 +143,8 @@ function App() {
             return;
         }
 
-        void browserGeometryBackend
-            .loadPreviewBoundingBox(inspection, selectedEntity)
+        void geometrySession
+            .loadPreviewBoundingBox(selectedEntity)
             .then((bounds) => {
                 const center = new THREE.Vector3(
                     bounds.center.x,
@@ -147,10 +164,10 @@ function App() {
                 );
                 activeCamera.lookAt(center);
             });
-    }, [inspection, selectedEntity, selectedMeshes]);
+    }, [geometrySession, selectedEntity, selectedMeshes]);
 
     useEffect(() => {
-        if (!inspection || !selectedEntity) {
+        if (!geometrySession || !selectedEntity) {
             return;
         }
 
@@ -158,11 +175,7 @@ function App() {
         setSelectedGeometryLoading(true);
         setSelectedMeshes([]);
 
-        void resolveSelectedGeometry(
-            browserGeometryBackend,
-            inspection,
-            selectedEntity,
-        )
+        void resolveSelectedGeometry(geometrySession, selectedEntity)
             .then((meshes) => {
                 if (!cancelled) {
                     setSelectedMeshes(meshes);
@@ -186,7 +199,7 @@ function App() {
         return () => {
             cancelled = true;
         };
-    }, [inspection, selectedEntity]);
+    }, [geometrySession, selectedEntity]);
 
     async function handleFileChange(
         event: React.ChangeEvent<HTMLInputElement>,
@@ -199,20 +212,34 @@ function App() {
 
         setLoadingStatus("Reading local file...");
         setError(null);
-        setInspection(null);
+        geometrySessionRef.current?.dispose();
+        geometrySessionRef.current = null;
+        setGeometrySession(null);
         setSelectedEntity(null);
         setSelectedMeshes([]);
 
         try {
             const content = await file.arrayBuffer();
-            setLoadingStatus("Parsing STEP with OCCT...");
-            const result = await browserGeometryBackend.loadTree({
+            const metadata = createMetadataInspection(
+                file.name,
+                file.size,
+                content,
+            );
+            const metadataSession = createMeshGeometrySession(metadata);
+            geometrySessionRef.current = metadataSession;
+            setGeometrySession(metadataSession);
+            setSelectedEntity(metadata.entities[0] ?? null);
+            setLoadingStatus("Assembly metadata ready; loading geometry...");
+
+            const result = await geometryBackend.loadTree({
                 fileName: file.name,
                 fileSize: file.size,
                 content,
             });
-            setInspection(result);
-            setSelectedEntity(result.entities[0] ?? null);
+            metadataSession.dispose();
+            geometrySessionRef.current = result;
+            setGeometrySession(result);
+            setSelectedEntity(result.inspection.entities[0] ?? null);
             setLoadingStatus(null);
         } catch (cause) {
             setError(
